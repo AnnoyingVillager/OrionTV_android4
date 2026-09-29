@@ -1,4 +1,5 @@
 import Logger from '@/utils/Logger';
+import { liveDebug } from '@/utils/LiveDebug';
 
 const logger = Logger.withTag('M3U');
 
@@ -65,13 +66,19 @@ export const isUltraHighDef = (channel: Pick<Channel, "name" | "url">): boolean 
 
 export const fetchAndParseM3u = async (m3uUrl: string): Promise<Channel[]> => {
   try {
+    liveDebug(`[M3U] fetching ${m3uUrl}`);
     const response = await fetch(m3uUrl);
+    liveDebug(`[M3U] fetch status=${response.status} ${response.ok ? 'OK' : 'NOT OK'}`);
     if (!response.ok) {
       throw new Error(`Failed to fetch M3U: ${response.statusText}`);
     }
     const m3uText = await response.text();
-    return parseM3U(m3uText);
+    liveDebug(`[M3U] body length=${m3uText.length}, startsWithBOM=${m3uText.charCodeAt(0) === 0xFEFF}, hasEXTINF=${m3uText.includes('#EXTINF')}`);
+    const channels = parseM3U(m3uText);
+    liveDebug(`[M3U] parsed ${channels.length} channels`);
+    return channels;
   } catch (error) {
+    liveDebug(`[M3U] fetch/parse FAILED: ${error}`);
     logger.info("Error fetching or parsing M3U:", error);
     return []; // Return empty array on error
   }

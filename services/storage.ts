@@ -2,6 +2,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { api, PlayRecord as ApiPlayRecord, Favorite as ApiFavorite } from "./api";
 import { storageConfig } from "./storageConfig";
 import Logger from '@/utils/Logger';
+import { liveDebug } from '@/utils/LiveDebug';
 
 const logger = Logger.withTag('Storage');
 
@@ -331,8 +332,10 @@ export class SettingsManager {
     };
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
+      liveDebug(`[SettingsManager] raw persisted settings=${data}`);
       return data ? { ...defaultSettings, ...JSON.parse(data) } : defaultSettings;
     } catch (error) {
+      liveDebug(`[SettingsManager] get FAILED: ${error}`);
       logger.info("Failed to get settings:", error);
       return defaultSettings;
     }
@@ -341,6 +344,7 @@ export class SettingsManager {
   static async save(settings: Partial<AppSettings>): Promise<void> {
     const currentSettings = await this.get();
     const updatedSettings = { ...currentSettings, ...settings };
+    liveDebug(`[SettingsManager] saving blockUltraHD=${updatedSettings.blockUltraHD} externalLivePlayer=${updatedSettings.externalLivePlayer}`);
     await AsyncStorage.setItem(STORAGE_KEYS.SETTINGS, JSON.stringify(updatedSettings));
   }
 

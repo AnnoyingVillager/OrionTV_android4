@@ -2,6 +2,7 @@ import React, { useRef, useState, useEffect } from "react";
 import { View, StyleSheet, Text, ActivityIndicator } from "react-native";
 import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
+import { liveDebug } from "@/utils/LiveDebug";
 
 interface LivePlayerProps {
   streamUrl: string | null;
@@ -17,6 +18,7 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, onPla
   const [isLoading, setIsLoading] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastStateRef = useRef<string>("");
   useKeepAwake();
 
   useEffect(() => {
@@ -25,9 +27,12 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, onPla
     }
 
     if (streamUrl) {
+      liveDebug(`[LivePlayer] start loading uri=${streamUrl}`);
       setIsLoading(true);
       setIsTimeout(false);
+      lastStateRef.current = "loading";
       timeoutRef.current = setTimeout(() => {
+        liveDebug(`[LivePlayer] TIMEOUT after ${PLAYBACK_TIMEOUT}ms uri=${streamUrl}`);
         setIsTimeout(true);
         setIsLoading(false);
       }, PLAYBACK_TIMEOUT);
@@ -44,6 +49,24 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, onPla
   }, [streamUrl]);
 
   const handlePlaybackStatusUpdate = (status: AVPlaybackStatus) => {
+    // 状态跃迁日志（去抖，只在状态变化时输出，避免刷屏）
+    let stateKey: string;
+    if (status.isLoaded) {
+      stateKey = status.isPlaying ? "playing" : status.isBuffering ? "buffering" : "paused";
+    } else {
+      stateKey = "error";
+    }
+    if (stateKey !== lastStateRef.current) {
+      lastStateRef.current = stateKey;
+      if (status.isLoaded) {
+        liveDebug(
+          `[LivePlayer] state -> ${stateKey} (loaded, position=${Math.round(status.positionMillis / 1000)}s, ` +
+          `duration=${Math.round((status.durationMillis ?? -1) / 1000)}s)`
+        );
+      } else if (status.error) {
+        liveDebug(`[LivePlayer] PLAYBACK ERROR: ${JSON.stringify(status.error)} uri=${streamUrl}`);
+      }
+    }
     if (status.isLoaded) {
       if (status.isPlaying) {
         if (timeoutRef.current) {
@@ -103,6 +126,7 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, onPla
         shouldPlay
         onPlaybackStatusUpdate={handlePlaybackStatusUpdate}
         onError={(e) => {
+          liveDebug(`[LivePlayer] Video onError: ${JSON.stringify(e)} uri=${streamUrl}`);
           setIsTimeout(true);
           setIsLoading(false);
         }}

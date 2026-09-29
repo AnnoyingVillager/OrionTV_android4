@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform, ToastAndroid } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform, ToastAndroid, Device } from "react-native";
 import * as IntentLauncher from "expo-intent-launcher";
+import { liveDebug } from "@/utils/LiveDebug";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, isUltraHighDef, Channel } from "@/services/m3u";
 import { ThemedView } from "@/components/ThemedView";
@@ -34,15 +35,26 @@ export default function LiveScreen() {
   const selectedChannel = channels[currentChannelIndex];
   const selectedChannelUrl = selectedChannel ? getPlayableUrl(selectedChannel.url) : null;
 
+  // 调试：设备信息与当前设置快照（Release APK 通过 adb logcat -s ReactNativeJS 查看）
+  useEffect(() => {
+    liveDebug(
+      `[LIVE] device model=${Device.model} brand=${Device.brand} androidAPI=${Platform.Version} ` +
+      `m3uUrl=${m3uUrl} blockUltraHD=${blockUltraHD} externalLivePlayer=${externalLivePlayer}`
+    );
+  }, [m3uUrl, blockUltraHD, externalLivePlayer]);
+
   // 外部播放器模式：把直播流交给系统/第三方播放器（走原生硬解路径），
   // 老盒子（Android 5.1）上 ExoPlayer 解码 4K 流易卡死，外部播放更稳定
   useEffect(() => {
     if (!externalLivePlayer || Platform.OS !== "android" || !selectedChannelUrl) return;
+    liveDebug(`[LIVE] launching external player: ${selectedChannelUrl}`);
     IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
       data: selectedChannelUrl,
       type: "video/*",
+    }).then(() => {
+      liveDebug("[LIVE] external player launched OK");
     }).catch((error) => {
-      console.warn("Failed to launch external player:", error);
+      liveDebug(`[LIVE] external player FAILED: ${error?.message || error}`);
       ToastAndroid.show("未找到可播放该流的外部播放器，请安装 MX Player / VLC 等支持网络 HLS 的播放器", ToastAndroid.LONG);
     });
   }, [externalLivePlayer, selectedChannelUrl]);
@@ -51,10 +63,20 @@ export default function LiveScreen() {
     const loadChannels = async () => {
       if (!m3uUrl) return;
       setIsLoading(true);
+      liveDebug(`[LIVE] loading m3u: ${m3uUrl}`);
       let parsedChannels = await fetchAndParseM3u(m3uUrl);
+      liveDebug(`[LIVE] parsed channels total=${parsedChannels.length}`);
       // 兼容模式：屏蔽 4K/8K 超高清源，避免老电视盒子解码能力不足导致卡死/死机
       if (blockUltraHD) {
+        const blocked = parsedChannels.filter((c) => isUltraHighDef(c));
         parsedChannels = parsedChannels.filter((c) => !isUltraHighDef(c));
+        liveDebug(
+          `[LIVE] blockUltraHD ON, blocked=${blocked.length}, remaining=${parsedChannels.length}, ` +
+          `blockedNames=[${blocked.map((c) => c.name).join(" | ")}]`
+        );
+      } else {
+        const ultra = parsedChannels.filter((c) => isUltraHighDef(c));
+        liveDebug(`[LIVE] blockUltraHD OFF, ${ultra.length} ultra-HD channels are PLAYABLE in-app: [${ultra.map((c) => c.name).join(" | ")}]`);
       }
       setChannels(parsedChannels);
 
@@ -88,6 +110,7 @@ export default function LiveScreen() {
 
   const handleSelectChannel = (channel: Channel) => {
     const globalIndex = channels.findIndex((c) => c.id === channel.id);
+    liveDebug(`[LIVE] select channel "${channel.name}" url=${channel.url} index=${globalIndex}`);
     if (globalIndex !== -1) {
       setCurrentChannelIndex(globalIndex);
       showChannelTitle(channel.name);
@@ -103,6 +126,7 @@ export default function LiveScreen() {
           ? (currentChannelIndex + 1) % channels.length
           : (currentChannelIndex - 1 + channels.length) % channels.length;
       setCurrentChannelIndex(newIndex);
+      liveDebug(`[LIVE] ${direction} channel "${channels[newIndex].name}" url=${channels[newIndex].url}`);
       showChannelTitle(channels[newIndex].name);
     },
     [channels, currentChannelIndex]

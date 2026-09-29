@@ -3,6 +3,7 @@ import { SettingsManager } from "@/services/storage";
 import { api, ServerConfig } from "@/services/api";
 import { storageConfig } from "@/services/storageConfig";
 import Logger from "@/utils/Logger";
+import { liveDebug } from "@/utils/LiveDebug";
 
 const logger = Logger.withTag('SettingsStore');
 
@@ -61,6 +62,7 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
         sources: {},
       },
     });
+    liveDebug(`[SettingsStore] applied blockUltraHD=${settings.blockUltraHD} externalLivePlayer=${settings.externalLivePlayer} m3uUrl=${settings.m3uUrl}`);
     if (settings.apiBaseUrl) {
       api.setBaseUrl(settings.apiBaseUrl);
       await get().fetchServerConfig();
