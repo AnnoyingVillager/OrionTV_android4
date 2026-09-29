@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform, ToastAndroid, Device } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform, ToastAndroid } from "react-native";
 import * as IntentLauncher from "expo-intent-launcher";
 import { liveDebug } from "@/utils/LiveDebug";
 import LivePlayer from "@/components/LivePlayer";
@@ -36,9 +36,10 @@ export default function LiveScreen() {
   const selectedChannelUrl = selectedChannel ? getPlayableUrl(selectedChannel.url) : null;
 
   // 调试：设备信息与当前设置快照（Release APK 通过 adb logcat -s ReactNativeJS 查看）
+  // 注意：react-native-tvos 没有 Device 模块，只能安全访问 Platform
   useEffect(() => {
     liveDebug(
-      `[LIVE] device model=${Device.model} brand=${Device.brand} androidAPI=${Platform.Version} ` +
+      `[LIVE] androidAPI=${Platform.Version} ${JSON.stringify(Platform.constants ?? {})} ` +
       `m3uUrl=${m3uUrl} blockUltraHD=${blockUltraHD} externalLivePlayer=${externalLivePlayer}`
     );
   }, [m3uUrl, blockUltraHD, externalLivePlayer]);
