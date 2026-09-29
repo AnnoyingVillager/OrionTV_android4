@@ -100,3 +100,93 @@ export const getPlayableUrl = (originalUrl: string | null): string | null => {
   // HTTPS streams can be played directly.
   return originalUrl;
 };
+
+// --- HLS 分辨率探测（兼容模式） ---
+// 老设备（如海思 Hi3751V551，H.265 硬解上限 4K@30、H.264 上限 1080p）被喂入超规格流
+// 会导致解码驱动崩溃甚至整机死机。频道名不带 4K 标识时按名过滤会漏网，
+// 因此播放前先拉取 master playlist 解析 RESOLUTION，选择设备能承载的最高变体；
+// 若所有变体都超限则拒绝播放，而不是把超规格流交给硬件解码器。
+export interface VariantPick {
+  action: "play" | "skip" | "direct";
+  url?: string;
+  reason?: string;
+}
+
+interface HlsVariant {
+  url: string;
+  width?: number;
+  height?: number;
+  bandwidth: number;
+}
+
+const joinUrl = (base: string, href: string): string => {
+  if (/^[a-z][a-z0-9+.-]*:\/\//i.test(href)) {
+    return href;
+  }
+  try {
+    return new URL(href, base).toString();
+  } catch {
+    const baseDir = base.substring(0, base.lastIndexOf("/") + 1);
+    if (href.startsWith("/")) {
+      const m = base.match(/^([a-z][a-z0-9+.-]*:\/\/[^/]+)/i);
+      return `${m ? m[1] : ""}${href}`;
+    }
+    return `${baseDir}${href}`;
+  }
+};
+
+export const parseMasterVariants = (masterText: string, masterUrl: string): HlsVariant[] => {
+  const lines = masterText.split(/\r?\n/);
+  const variants: HlsVariant[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line.toUpperCase().startsWith("#EXT-X-STREAM-INF")) {
+      continue;
+    }
+    const bandwidthMatch = line.match(/BANDWIDTH=(\d+)/i);
+    const resolutionMatch = line.match(/RESOLUTION=(\d+)x(\d+)/i);
+    // 变体 URI 是紧跟其后的第一行非注释内容
+    let uri = "";
+    for (let j = i + 1; j < lines.length; j++) {
+      const candidate = lines[j].trim();
+      if (candidate && !candidate.startsWith("#")) {
+        uri = candidate;
+        i = j;
+        break;
+      }
+    }
+    if (!uri) {
+      continue;
+    }
+    variants.push({
+      url: joinUrl(masterUrl, uri),
+      width: resolutionMatch ? parseInt(resolutionMatch[1], 10) : undefined,
+      height: resolutionMatch ? parseInt(resolutionMatch[2], 10) : undefined,
+      bandwidth: bandwidthMatch ? parseInt(bandwidthMatch[1], 10) : 0,
+    });
+  }
+  return variants;
+};
+
+export const selectBestVariant = (masterText: string, masterUrl: string, maxWidth: number, maxHeight: number): VariantPick => {
+  const variants = parseMasterVariants(masterText, masterUrl);
+  if (variants.length === 0) {
+    // 不是 master playlist（媒体分片列表或解析失败），交给播放器直连
+    return { action: "direct" };
+  }
+  const usable = variants.filter(
+    (v) =>
+      v.width === undefined ||
+      v.height === undefined ||
+      (v.width <= maxWidth && v.height <= maxHeight)
+  );
+  if (usable.length === 0) {
+    const desc = variants.map((v) => `${v.width}x${v.height}@${Math.round(v.bandwidth / 1000)}kbps`).join(", ");
+    return {
+      action: "skip",
+      reason: `所有分片均超出设备解码能力: [${desc}]`,
+    };
+  }
+  usable.sort((a, b) => b.bandwidth - a.bandwidth);
+  return { action: "play", url: usable[0].url };
+};

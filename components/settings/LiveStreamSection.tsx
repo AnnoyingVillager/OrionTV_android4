@@ -164,7 +164,7 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
           <View style={styles.compatInfo}>
             <ThemedText style={styles.sectionTitle}>兼容模式：屏蔽 4K/8K 源</ThemedText>
             <ThemedText style={styles.subtitle}>
-              老电视盒子（如 Android 5）硬件解码能力有限，播放 4K 直播源可能导致卡死或死机，建议开启
+              开启后：屏蔽名称含 4K/超高清 的频道，并在播放前自动探测直播流分辨率，超过 1080p 的分片自动降档或跳过，防止老盒子解码器崩溃死机
             </ThemedText>
           </View>
           <Animated.View style={compatAnimationStyle}>

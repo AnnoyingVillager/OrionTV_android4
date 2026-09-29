@@ -155,6 +155,7 @@ export default function LiveScreen() {
         streamUrl={selectedChannelUrl} 
         channelTitle={channelTitle} 
         useExternal={externalLivePlayer}
+        compatMode={blockUltraHD}
         onPlaybackStatusUpdate={() => {}} 
       />
       <Modal
