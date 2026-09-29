@@ -4,12 +4,15 @@ import { Video, ResizeMode, AVPlaybackStatus } from "expo-av";
 import { useKeepAwake } from "expo-keep-awake";
 import { liveDebug } from "@/utils/LiveDebug";
 import { selectBestVariant } from "@/services/m3u";
+import DlnaCastPlayer from "@/components/DlnaCastPlayer";
 
 interface LivePlayerProps {
   streamUrl: string | null;
   channelTitle?: string | null;
   useExternal?: boolean;
   compatMode?: boolean;
+  dlnaMode?: boolean;
+  dlnaDeviceUrl?: string;
   onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
 }
 
@@ -18,7 +21,7 @@ const PLAYBACK_TIMEOUT = 15000; // 15 seconds
 const SAFE_MAX_WIDTH = 1920;
 const SAFE_MAX_HEIGHT = 1080;
 
-export default function LivePlayer({ streamUrl, channelTitle, useExternal, compatMode, onPlaybackStatusUpdate }: LivePlayerProps) {
+export default function LivePlayer({ streamUrl, channelTitle, useExternal, compatMode, dlnaMode, dlnaDeviceUrl, onPlaybackStatusUpdate }: LivePlayerProps) {
   const video = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -39,7 +42,8 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, compa
       setResolvedUrl(null);
       return;
     }
-    if (!compatMode) {
+    if (!compatMode || dlnaMode) {
+      // DLNA 投屏模式走电视原生管线，支持 4K，无需本机探测降档
       setResolvedUrl(streamUrl);
       return;
     }
@@ -76,7 +80,7 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, compa
     return () => {
       cancelled = true;
     };
-  }, [streamUrl, compatMode]);
+  }, [streamUrl, compatMode, dlnaMode]);
 
   useEffect(() => {
     if (timeoutRef.current) {
@@ -151,6 +155,17 @@ export default function LivePlayer({ streamUrl, channelTitle, useExternal, compa
       <View style={styles.container}>
         <Text style={styles.messageText}>按向下键选择频道</Text>
       </View>
+    );
+  }
+
+  if (dlnaMode) {
+    // 自投屏：不渲染 expo-av Video，把流推给电视 DMR 原生解码
+    return (
+      <DlnaCastPlayer
+        streamUrl={streamUrl}
+        channelTitle={channelTitle}
+        deviceUrl={dlnaDeviceUrl}
+      />
     );
   }
 

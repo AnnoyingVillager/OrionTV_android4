@@ -14,7 +14,7 @@ import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
 
 export default function LiveScreen() {
-  const { m3uUrl, blockUltraHD, externalLivePlayer } = useSettingsStore();
+  const { m3uUrl, blockUltraHD, externalLivePlayer, dlnaCastMode, dlnaDeviceUrl } = useSettingsStore();
   
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -40,14 +40,15 @@ export default function LiveScreen() {
   useEffect(() => {
     liveDebug(
       `[LIVE] androidAPI=${Platform.Version} ${JSON.stringify(Platform.constants ?? {})} ` +
-      `m3uUrl=${m3uUrl} blockUltraHD=${blockUltraHD} externalLivePlayer=${externalLivePlayer}`
+      `m3uUrl=${m3uUrl} blockUltraHD=${blockUltraHD} externalLivePlayer=${externalLivePlayer} ` +
+      `dlnaCastMode=${dlnaCastMode} dlnaDeviceUrl=${dlnaDeviceUrl}`
     );
-  }, [m3uUrl, blockUltraHD, externalLivePlayer]);
+  }, [m3uUrl, blockUltraHD, externalLivePlayer, dlnaCastMode, dlnaDeviceUrl]);
 
   // 外部播放器模式：把直播流交给系统/第三方播放器（走原生硬解路径），
   // 老盒子（Android 5.1）上 ExoPlayer 解码 4K 流易卡死，外部播放更稳定
   useEffect(() => {
-    if (!externalLivePlayer || Platform.OS !== "android" || !selectedChannelUrl) return;
+    if (!externalLivePlayer || dlnaCastMode || Platform.OS !== "android" || !selectedChannelUrl) return;
     liveDebug(`[LIVE] launching external player: ${selectedChannelUrl}`);
     IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
       data: selectedChannelUrl,
@@ -58,7 +59,7 @@ export default function LiveScreen() {
       liveDebug(`[LIVE] external player FAILED: ${error?.message || error}`);
       ToastAndroid.show("未找到可播放该流的外部播放器，请安装 MX Player / VLC 等支持网络 HLS 的播放器", ToastAndroid.LONG);
     });
-  }, [externalLivePlayer, selectedChannelUrl]);
+  }, [externalLivePlayer, dlnaCastMode, selectedChannelUrl]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -156,6 +157,8 @@ export default function LiveScreen() {
         channelTitle={channelTitle} 
         useExternal={externalLivePlayer}
         compatMode={blockUltraHD}
+        dlnaMode={dlnaCastMode}
+        dlnaDeviceUrl={dlnaDeviceUrl}
         onPlaybackStatusUpdate={() => {}} 
       />
       <Modal

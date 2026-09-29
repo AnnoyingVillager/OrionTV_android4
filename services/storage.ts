@@ -44,6 +44,10 @@ export interface AppSettings {
   blockUltraHD: boolean;
   // 调用系统外部播放器播放直播：老盒子上 ExoPlayer 解码路径易出问题，外部播放器走系统硬解更稳定
   externalLivePlayer: boolean;
+  // DLNA 自投屏模式：把流推给电视原生 DMR 渲染器解码（4K@50 安全），绕开受限的 MediaCodec 管线
+  dlnaCastMode: boolean;
+  // 手填 DMR 设备描述 URL（可选，如 http://192.168.10.170:1330/）；留空则自动 SSDP 发现
+  dlnaDeviceUrl: string;
 }
 
 export interface LoginCredentials {
@@ -329,6 +333,8 @@ export class SettingsManager {
       m3uUrl: "",
       blockUltraHD: false,
       externalLivePlayer: false,
+      dlnaCastMode: false,
+      dlnaDeviceUrl: "",
     };
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);

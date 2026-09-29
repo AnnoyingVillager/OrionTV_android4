@@ -11,6 +11,8 @@ import { SpeedSelectionModal } from "@/components/SpeedSelectionModal";
 import { SeekingBar } from "@/components/SeekingBar";
 // import { NextEpisodeOverlay } from "@/components/NextEpisodeOverlay";
 import VideoLoadingAnimation from "@/components/VideoLoadingAnimation";
+import DlnaCastPlayer from "@/components/DlnaCastPlayer";
+import { useSettingsStore } from "@/stores/settingsStore";
 import useDetailStore from "@/stores/detailStore";
 import { useTVRemoteHandler } from "@/hooks/useTVRemoteHandler";
 import Toast from "react-native-toast-message";
@@ -112,6 +114,9 @@ export default function PlayScreen() {
     loadVideo,
   } = usePlayerStore();
   const currentEpisode = usePlayerStore(selectCurrentEpisode);
+  // DLNA 自投屏模式：点播也推给电视原生渲染器解码，不在 App 内起 expo-av Video
+  const dlnaCastMode = useSettingsStore((s) => s.dlnaCastMode);
+  const dlnaDeviceUrl = useSettingsStore((s) => s.dlnaDeviceUrl);
 
   // 使用Video事件处理hook
   const { videoProps } = useVideoHandlers({
@@ -221,9 +226,19 @@ export default function PlayScreen() {
         onPress={onScreenPress}
         disabled={deviceType !== "tv" && showControls} // 移动端和平板端在显示控制条时禁用触摸
       >
-        {/* 条件渲染Video组件：只有在有有效URL时才渲染 */}
+        {/* 条件渲染Video组件：只有在有有效URL时才渲染；DLNA 投屏模式改推流给电视 */}
         {currentEpisode?.url ? (
-          <Video ref={videoRef} style={dynamicStyles.videoPlayer} {...videoProps} />
+          dlnaCastMode ? (
+            <View style={dynamicStyles.videoPlayer}>
+              <DlnaCastPlayer
+                streamUrl={currentEpisode.url}
+                channelTitle={currentEpisode.title}
+                deviceUrl={dlnaDeviceUrl}
+              />
+            </View>
+          ) : (
+            <Video ref={videoRef} style={dynamicStyles.videoPlayer} {...videoProps} />
+          )
         ) : (
           <LoadingContainer style={dynamicStyles.loadingContainer} currentEpisode={currentEpisode} />
         )}

@@ -11,6 +11,7 @@ import { useSettingsStore } from "@/stores/settingsStore";
 import { useRemoteControlStore } from "@/stores/remoteControlStore";
 import { APIConfigSection } from "@/components/settings/APIConfigSection";
 import { LiveStreamSection } from "@/components/settings/LiveStreamSection";
+import { DlnaCastSection, DlnaCastSectionRef } from "@/components/settings/DlnaCastSection";
 import { RemoteInputSection } from "@/components/settings/RemoteInputSection";
 import { UpdateSection } from "@/components/settings/UpdateSection";
 // import { VideoSourceSection } from "@/components/settings/VideoSourceSection";
@@ -53,6 +54,7 @@ export default function SettingsScreen() {
   const saveButtonRef = useRef<any>(null);
   const apiSectionRef = useRef<any>(null);
   const liveStreamSectionRef = useRef<any>(null);
+  const dlnaCastSectionRef = useRef<DlnaCastSectionRef>(null);
 
   useEffect(() => {
     loadSettings();
@@ -76,6 +78,9 @@ export default function SettingsScreen() {
     } else if (currentSection === "livestream" && liveStreamSectionRef.current) {
       // Live Stream Section
       setM3uUrl(message);
+    } else if (currentSection === "dlna" && dlnaCastSectionRef.current) {
+      // DLNA 投屏设备地址
+      dlnaCastSectionRef.current.setInputValue(message);
     }
   };
 
@@ -197,6 +202,19 @@ export default function SettingsScreen() {
         />
       ),
       key: "livestream",
+    },
+    {
+      component: (
+        <DlnaCastSection
+          ref={dlnaCastSectionRef}
+          onChanged={markAsChanged}
+          onFocus={() => {
+            setCurrentFocusIndex(3);
+            setCurrentSection("dlna");
+          }}
+        />
+      ),
+      key: "dlna",
     },
     Platform.OS === "android" && {
       component: <UpdateSection />,

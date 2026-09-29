@@ -12,6 +12,8 @@ interface SettingsState {
   m3uUrl: string;
   blockUltraHD: boolean;
   externalLivePlayer: boolean;
+  dlnaCastMode: boolean;
+  dlnaDeviceUrl: string;
   remoteInputEnabled: boolean;
   videoSource: {
     enabledAll: boolean;
@@ -28,6 +30,8 @@ interface SettingsState {
   setM3uUrl: (url: string) => void;
   setBlockUltraHD: (enabled: boolean) => void;
   setExternalLivePlayer: (enabled: boolean) => void;
+  setDlnaCastMode: (enabled: boolean) => void;
+  setDlnaDeviceUrl: (url: string) => void;
   setRemoteInputEnabled: (enabled: boolean) => void;
   saveSettings: () => Promise<void>;
   setVideoSource: (config: { enabledAll: boolean; sources: { [key: string]: boolean } }) => void;
@@ -40,6 +44,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   m3uUrl: "",
   blockUltraHD: false,
   externalLivePlayer: false,
+  dlnaCastMode: false,
+  dlnaDeviceUrl: "",
   liveStreamSources: [],
   remoteInputEnabled: false,
   isModalVisible: false,
@@ -56,13 +62,15 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       m3uUrl: settings.m3uUrl,
       blockUltraHD: settings.blockUltraHD || false,
       externalLivePlayer: settings.externalLivePlayer || false,
+      dlnaCastMode: settings.dlnaCastMode || false,
+      dlnaDeviceUrl: settings.dlnaDeviceUrl || "",
       remoteInputEnabled: settings.remoteInputEnabled || false,
       videoSource: settings.videoSource || {
         enabledAll: true,
         sources: {},
       },
     });
-    liveDebug(`[SettingsStore] applied blockUltraHD=${settings.blockUltraHD} externalLivePlayer=${settings.externalLivePlayer} m3uUrl=${settings.m3uUrl}`);
+    liveDebug(`[SettingsStore] applied blockUltraHD=${settings.blockUltraHD} externalLivePlayer=${settings.externalLivePlayer} dlnaCastMode=${settings.dlnaCastMode} dlnaDeviceUrl=${settings.dlnaDeviceUrl} m3uUrl=${settings.m3uUrl}`);
     if (settings.apiBaseUrl) {
       api.setBaseUrl(settings.apiBaseUrl);
       await get().fetchServerConfig();
@@ -87,10 +95,12 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
   setM3uUrl: (url) => set({ m3uUrl: url }),
   setBlockUltraHD: (enabled) => set({ blockUltraHD: enabled }),
   setExternalLivePlayer: (enabled) => set({ externalLivePlayer: enabled }),
+  setDlnaCastMode: (enabled) => set({ dlnaCastMode: enabled }),
+  setDlnaDeviceUrl: (url) => set({ dlnaDeviceUrl: url }),
   setRemoteInputEnabled: (enabled) => set({ remoteInputEnabled: enabled }),
   setVideoSource: (config) => set({ videoSource: config }),
   saveSettings: async () => {
-    const { apiBaseUrl, m3uUrl, blockUltraHD, externalLivePlayer, remoteInputEnabled, videoSource } = get();
+    const { apiBaseUrl, m3uUrl, blockUltraHD, externalLivePlayer, dlnaCastMode, dlnaDeviceUrl, remoteInputEnabled, videoSource } = get();
 
     let processedApiBaseUrl = apiBaseUrl.trim();
     if (processedApiBaseUrl.endsWith("/")) {
@@ -116,6 +126,8 @@ export const useSettingsStore = create<SettingsState>((set, get) => ({
       m3uUrl,
       blockUltraHD,
       externalLivePlayer,
+      dlnaCastMode,
+      dlnaDeviceUrl,
       remoteInputEnabled,
       videoSource,
     });
