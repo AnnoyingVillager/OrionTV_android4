@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform, ToastAndroid } from "react-native";
 import * as IntentLauncher from "expo-intent-launcher";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, isUltraHighDef, Channel } from "@/services/m3u";
@@ -43,6 +43,7 @@ export default function LiveScreen() {
       type: "video/*",
     }).catch((error) => {
       console.warn("Failed to launch external player:", error);
+      ToastAndroid.show("未找到可播放该流的外部播放器，请安装 MX Player / VLC 等支持网络 HLS 的播放器", ToastAndroid.LONG);
     });
   }, [externalLivePlayer, selectedChannelUrl]);
 

@@ -56,7 +56,8 @@ export const parseM3U = (m3uText: string): Channel[] => {
 
 // 识别 4K/8K 超高清直播源：用于老设备（如 Android 5 电视盒子）兼容模式过滤。
 // 老盒子硬件解码器普遍只支持 1080p H.264，强行解码 4K 流会导致媒体服务崩溃甚至整机死机。
-const ULTRA_HD_PATTERN = /4k|8k|2160|uhd/i;
+// 注意国内 IPTV 频道常用中文标注（如"CCTV16 超高清"），需一并匹配。
+const ULTRA_HD_PATTERN = /4k|8k|2160|uhd|超高清/i;
 
 export const isUltraHighDef = (channel: Pick<Channel, "name" | "url">): boolean => {
   return ULTRA_HD_PATTERN.test(channel.name || "") || ULTRA_HD_PATTERN.test(channel.url || "");

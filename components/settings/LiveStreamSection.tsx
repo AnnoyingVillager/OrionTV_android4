@@ -37,11 +37,15 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
     const handleCompatToggle = () => {
       setBlockUltraHD(!blockUltraHD);
       onChanged();
+      // 开关立即持久化，避免用户忘记点"保存设置"导致重启后失效
+      void useSettingsStore.getState().saveSettings();
     };
 
     const handleExternalToggle = () => {
       setExternalLivePlayer(!externalLivePlayer);
       onChanged();
+      // 开关立即持久化，避免用户忘记点"保存设置"导致重启后失效
+      void useSettingsStore.getState().saveSettings();
     };
 
     const handleUrlChange = (url: string) => {
