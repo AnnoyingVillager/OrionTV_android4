@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text } from "react-native";
 import LivePlayer from "@/components/LivePlayer";
-import { fetchAndParseM3u, getPlayableUrl, Channel } from "@/services/m3u";
+import { fetchAndParseM3u, getPlayableUrl, isUltraHighDef, Channel } from "@/services/m3u";
 import { ThemedView } from "@/components/ThemedView";
 import { StyledButton } from "@/components/StyledButton";
 import { useSettingsStore } from "@/stores/settingsStore";
@@ -12,7 +12,7 @@ import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
 
 export default function LiveScreen() {
-  const { m3uUrl } = useSettingsStore();
+  const { m3uUrl, blockUltraHD } = useSettingsStore();
   
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -30,13 +30,18 @@ export default function LiveScreen() {
   const [channelTitle, setChannelTitle] = useState<string | null>(null);
   const titleTimer = useRef<NodeJS.Timeout | null>(null);
 
-  const selectedChannelUrl = channels.length > 0 ? getPlayableUrl(channels[currentChannelIndex].url) : null;
+  const selectedChannel = channels[currentChannelIndex];
+  const selectedChannelUrl = selectedChannel ? getPlayableUrl(selectedChannel.url) : null;
 
   useEffect(() => {
     const loadChannels = async () => {
       if (!m3uUrl) return;
       setIsLoading(true);
-      const parsedChannels = await fetchAndParseM3u(m3uUrl);
+      let parsedChannels = await fetchAndParseM3u(m3uUrl);
+      // 兼容模式：屏蔽 4K/8K 超高清源，避免老电视盒子解码能力不足导致卡死/死机
+      if (blockUltraHD) {
+        parsedChannels = parsedChannels.filter((c) => !isUltraHighDef(c));
+      }
       setChannels(parsedChannels);
 
       const groups: Record<string, Channel[]> = parsedChannels.reduce((acc, channel) => {
@@ -59,7 +64,7 @@ export default function LiveScreen() {
       setIsLoading(false);
     };
     loadChannels();
-  }, [m3uUrl]);
+  }, [m3uUrl, blockUltraHD]);
 
   const showChannelTitle = (title: string) => {
     setChannelTitle(title);

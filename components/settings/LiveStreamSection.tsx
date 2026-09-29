@@ -1,5 +1,5 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef } from "react";
-import { View, TextInput, StyleSheet, Animated, Platform } from "react-native";
+import { View, TextInput, StyleSheet, Animated, Platform, Pressable, Switch } from "react-native";
 import { useTVEventHandler } from "react-native";
 import { ThemedText } from "@/components/ThemedText";
 import { SettingsSection } from "./SettingsSection";
@@ -22,13 +22,20 @@ export interface LiveStreamSectionRef {
 
 export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSectionProps>(
   ({ onChanged, onFocus, onBlur, onPress }, ref) => {
-    const { m3uUrl, setM3uUrl, remoteInputEnabled } = useSettingsStore();
+    const { m3uUrl, setM3uUrl, remoteInputEnabled, blockUltraHD, setBlockUltraHD } = useSettingsStore();
     const { serverUrl } = useRemoteControlStore();
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [isSectionFocused, setIsSectionFocused] = useState(false);
+    const [isCompatFocused, setIsCompatFocused] = useState(false);
     const inputRef = useRef<TextInput>(null);
     const inputAnimationStyle = useButtonAnimation(isSectionFocused, 1.01);
+    const compatAnimationStyle = useButtonAnimation(isCompatFocused, 1.2);
     const deviceType = useResponsiveLayout().deviceType;
+
+    const handleCompatToggle = () => {
+      setBlockUltraHD(!blockUltraHD);
+      onChanged();
+    };
 
     const handleUrlChange = (url: string) => {
       setM3uUrl(url);
@@ -59,11 +66,16 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
 
     const handleTVEvent = React.useCallback(
       (event: any) => {
+        if (isCompatFocused && event.eventType === "select") {
+          handleCompatToggle();
+          return;
+        }
         if (isSectionFocused && event.eventType === "select") {
           inputRef.current?.focus();
         }
       },
-      [isSectionFocused]
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      [isSectionFocused, isCompatFocused, blockUltraHD]
     );
 
     useTVEventHandler(handleTVEvent);
@@ -81,6 +93,7 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
         };
 
     return (
+      <View>
       <SettingsSection focusable onFocus={handleSectionFocus} onBlur={handleSectionBlur}
         onPress={Platform.isTV || deviceType !== 'tv' ? undefined : handlePress}
       >
@@ -122,6 +135,35 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
           </Animated.View>
         </View>
       </SettingsSection>
+      <SettingsSection
+        focusable
+        onFocus={() => setIsCompatFocused(true)}
+        onBlur={() => setIsCompatFocused(false)}
+        onPress={Platform.isTV || deviceType !== 'tv' ? undefined : handleCompatToggle}
+      >
+        <Pressable
+          style={styles.compatRow}
+          onFocus={() => setIsCompatFocused(true)}
+          onBlur={() => setIsCompatFocused(false)}
+        >
+          <View style={styles.compatInfo}>
+            <ThemedText style={styles.sectionTitle}>兼容模式：屏蔽 4K/8K 源</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              老电视盒子（如 Android 5）硬件解码能力有限，播放 4K 直播源可能导致卡死或死机，建议开启
+            </ThemedText>
+          </View>
+          <Animated.View style={compatAnimationStyle}>
+            <Switch
+              value={blockUltraHD}
+              onValueChange={() => { }} // 禁用 Switch 直接交互，由按键/遥控器事件触发
+              trackColor={{ false: "#767577", true: Colors.dark.primary }}
+              thumbColor={blockUltraHD ? "#ffffff" : "#f4f3f4"}
+              pointerEvents="none"
+            />
+          </Animated.View>
+        </Pressable>
+      </SettingsSection>
+      </View>
     );
   }
 );
@@ -129,6 +171,15 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
 LiveStreamSection.displayName = "LiveStreamSection";
 
 const styles = StyleSheet.create({
+  compatRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  compatInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
   titleContainer: {
     flexDirection: "row",
     alignItems: "center",

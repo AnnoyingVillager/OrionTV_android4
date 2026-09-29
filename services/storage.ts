@@ -39,6 +39,8 @@ export interface AppSettings {
     };
   };
   m3uUrl: string;
+  // 兼容模式：屏蔽 4K/8K 超高清直播源，避免老设备（Android 5 等）硬解能力不足导致死机
+  blockUltraHD: boolean;
 }
 
 export interface LoginCredentials {
@@ -322,6 +324,7 @@ export class SettingsManager {
         sources: {},
       },
       m3uUrl: "",
+      blockUltraHD: false,
     };
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
