@@ -1,0 +1,159 @@
+name: Build Debug APK (Artifact only)
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_flavor:
+        description: "要构建的主程序（Expo/RN）还是 Android 4.0.4 原生版（legacy）"
+        required: true
+        default: "main"
+        type: choice
+        options:
+          - main
+          - legacy
+
+permissions:
+  contents: read
+
+jobs:
+  build_main_debug:
+    if: ${{ inputs.build_flavor == 'main' }}
+    name: Build Expo Debug APK (Android 5+)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: 18
+
+      - name: Install dependencies
+        run: yarn install --frozen-lockfile
+
+      - name: Get version from package.json
+        id: package-version
+        run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+
+      - name: Setup JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Prebuild TV App
+        run: yarn prebuild
+
+      - name: Enable JS bundling for debug variant
+        run: |
+          # RN 默认 debug 变体不打 JS bundle（需要连 Metro），清空 debuggableVariants
+          # 使 assembleDebug 也把 bundle 打进 APK，可离线安装
+          sed -i 's|// debuggableVariants = \["liteDebug", "prodDebug"\]|debuggableVariants = []|' android/app/build.gradle
+          grep -n 'debuggableVariants' android/app/build.gradle
+
+      - name: Keep console logs in debug bundle
+        run: |
+          # babel 的 NODE_ENV 由 expo export:embed 决定，非 production 时不会应用
+          # transform-remove-console；再加保险：显式去掉该插件，确保日志完整输出
+          sed -i "s|process.env.NODE_ENV === 'production'|false \&\& process.env.NODE_ENV === 'production'|" babel.config.js
+          cat babel.config.js
+
+      - name: Build Debug APK
+        run: cd android && ./gradlew assembleDebug --stacktrace
+
+      - name: Locate and rename APK
+        run: |
+          mkdir -p artifacts
+          apk=$(find android/app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "No debug APK found"
+            find android/app/build/outputs -maxdepth 5 -type f || true
+            exit 1
+          fi
+          cp "$apk" artifacts/orionTV.${{ steps.package-version.outputs.version }}-debug.apk
+          ls -lh artifacts/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orionTV-${{ steps.package-version.outputs.version }}-debug
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 30
+
+  build_legacy_debug:
+    if: ${{ inputs.build_flavor == 'legacy' }}
+    name: Build Android 4.0.4 Legacy Debug APK
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17 for Android SDK tools
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "17"
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install legacy Android SDK packages
+        run: |
+          yes | sdkmanager "platform-tools" "platforms;android-25" "build-tools;26.0.2"
+
+      - name: Set up JDK 8 for legacy Gradle build
+        uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: "8"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: "4.1"
+
+      - name: Get version from package.json
+        id: package-version
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Ensure debug signing key exists
+        run: |
+          mkdir -p "$HOME/.android"
+          if [ ! -f "$HOME/.android/debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore "$HOME/.android/debug.keystore" \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+
+      - name: Build legacy debug APK
+        run: gradle -p legacy-android-ics :app:assembleDebug
+
+      - name: Locate and rename APK
+        run: |
+          mkdir -p artifacts
+          apk=$(find legacy-android-ics/app/build/outputs/apk -name "*.apk" | head -n 1)
+          if [ -z "$apk" ]; then
+            echo "No legacy debug APK found"
+            find legacy-android-ics/app/build/outputs -maxdepth 5 -type f || true
+            exit 1
+          fi
+          cp "$apk" artifacts/orionTV.${{ steps.package-version.outputs.version }}-android-ics-debug.apk
+          ls -lh artifacts/
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: orionTV-${{ steps.package-version.outputs.version }}-android-ics-debug
+          path: artifacts/*.apk
+          if-no-files-found: error
+          retention-days: 30
