@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from "react";
-import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text } from "react-native";
+import { View, FlatList, StyleSheet, ActivityIndicator, Modal, useTVEventHandler, HWEvent, Text, Platform } from "react-native";
+import * as IntentLauncher from "expo-intent-launcher";
 import LivePlayer from "@/components/LivePlayer";
 import { fetchAndParseM3u, getPlayableUrl, isUltraHighDef, Channel } from "@/services/m3u";
 import { ThemedView } from "@/components/ThemedView";
@@ -12,7 +13,7 @@ import ResponsiveHeader from "@/components/navigation/ResponsiveHeader";
 import { DeviceUtils } from "@/utils/DeviceUtils";
 
 export default function LiveScreen() {
-  const { m3uUrl, blockUltraHD } = useSettingsStore();
+  const { m3uUrl, blockUltraHD, externalLivePlayer } = useSettingsStore();
   
   // 响应式布局配置
   const responsiveConfig = useResponsiveLayout();
@@ -32,6 +33,18 @@ export default function LiveScreen() {
 
   const selectedChannel = channels[currentChannelIndex];
   const selectedChannelUrl = selectedChannel ? getPlayableUrl(selectedChannel.url) : null;
+
+  // 外部播放器模式：把直播流交给系统/第三方播放器（走原生硬解路径），
+  // 老盒子（Android 5.1）上 ExoPlayer 解码 4K 流易卡死，外部播放更稳定
+  useEffect(() => {
+    if (!externalLivePlayer || Platform.OS !== "android" || !selectedChannelUrl) return;
+    IntentLauncher.startActivityAsync("android.intent.action.VIEW", {
+      data: selectedChannelUrl,
+      type: "video/*",
+    }).catch((error) => {
+      console.warn("Failed to launch external player:", error);
+    });
+  }, [externalLivePlayer, selectedChannelUrl]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -115,6 +128,7 @@ export default function LiveScreen() {
       <LivePlayer 
         streamUrl={selectedChannelUrl} 
         channelTitle={channelTitle} 
+        useExternal={externalLivePlayer}
         onPlaybackStatusUpdate={() => {}} 
       />
       <Modal

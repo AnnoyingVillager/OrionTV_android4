@@ -6,12 +6,13 @@ import { useKeepAwake } from "expo-keep-awake";
 interface LivePlayerProps {
   streamUrl: string | null;
   channelTitle?: string | null;
+  useExternal?: boolean;
   onPlaybackStatusUpdate: (status: AVPlaybackStatus) => void;
 }
 
 const PLAYBACK_TIMEOUT = 15000; // 15 seconds
 
-export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUpdate }: LivePlayerProps) {
+export default function LivePlayer({ streamUrl, channelTitle, useExternal, onPlaybackStatusUpdate }: LivePlayerProps) {
   const video = useRef<Video>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isTimeout, setIsTimeout] = useState(false);
@@ -69,6 +70,15 @@ export default function LivePlayer({ streamUrl, channelTitle, onPlaybackStatusUp
     return (
       <View style={styles.container}>
         <Text style={styles.messageText}>按向下键选择频道</Text>
+      </View>
+    );
+  }
+
+  if (useExternal) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.messageText}>正在通过外部播放器播放{channelTitle ? `：${channelTitle}` : ""}</Text>
+        <Text style={styles.messageText}>若无播放器弹出，说明本机没有可处理 video/* 的播放应用，请安装第三方播放器或关闭外部播放选项</Text>
       </View>
     );
   }

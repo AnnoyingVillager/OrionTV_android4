@@ -22,18 +22,25 @@ export interface LiveStreamSectionRef {
 
 export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSectionProps>(
   ({ onChanged, onFocus, onBlur, onPress }, ref) => {
-    const { m3uUrl, setM3uUrl, remoteInputEnabled, blockUltraHD, setBlockUltraHD } = useSettingsStore();
+    const { m3uUrl, setM3uUrl, remoteInputEnabled, blockUltraHD, setBlockUltraHD, externalLivePlayer, setExternalLivePlayer } = useSettingsStore();
     const { serverUrl } = useRemoteControlStore();
     const [isInputFocused, setIsInputFocused] = useState(false);
     const [isSectionFocused, setIsSectionFocused] = useState(false);
     const [isCompatFocused, setIsCompatFocused] = useState(false);
+    const [isExternalFocused, setIsExternalFocused] = useState(false);
     const inputRef = useRef<TextInput>(null);
     const inputAnimationStyle = useButtonAnimation(isSectionFocused, 1.01);
     const compatAnimationStyle = useButtonAnimation(isCompatFocused, 1.2);
+    const externalAnimationStyle = useButtonAnimation(isExternalFocused, 1.2);
     const deviceType = useResponsiveLayout().deviceType;
 
     const handleCompatToggle = () => {
       setBlockUltraHD(!blockUltraHD);
+      onChanged();
+    };
+
+    const handleExternalToggle = () => {
+      setExternalLivePlayer(!externalLivePlayer);
       onChanged();
     };
 
@@ -70,12 +77,16 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
           handleCompatToggle();
           return;
         }
+        if (isExternalFocused && event.eventType === "select") {
+          handleExternalToggle();
+          return;
+        }
         if (isSectionFocused && event.eventType === "select") {
           inputRef.current?.focus();
         }
       },
       // eslint-disable-next-line react-hooks/exhaustive-deps
-      [isSectionFocused, isCompatFocused, blockUltraHD]
+      [isSectionFocused, isCompatFocused, isExternalFocused, blockUltraHD, externalLivePlayer]
     );
 
     useTVEventHandler(handleTVEvent);
@@ -158,6 +169,34 @@ export const LiveStreamSection = forwardRef<LiveStreamSectionRef, LiveStreamSect
               onValueChange={() => { }} // 禁用 Switch 直接交互，由按键/遥控器事件触发
               trackColor={{ false: "#767577", true: Colors.dark.primary }}
               thumbColor={blockUltraHD ? "#ffffff" : "#f4f3f4"}
+              pointerEvents="none"
+            />
+          </Animated.View>
+        </Pressable>
+      </SettingsSection>
+      <SettingsSection
+        focusable
+        onFocus={() => setIsExternalFocused(true)}
+        onBlur={() => setIsExternalFocused(false)}
+        onPress={Platform.isTV || deviceType !== 'tv' ? undefined : handleExternalToggle}
+      >
+        <Pressable
+          style={styles.compatRow}
+          onFocus={() => setIsExternalFocused(true)}
+          onBlur={() => setIsExternalFocused(false)}
+        >
+          <View style={styles.compatInfo}>
+            <ThemedText style={styles.sectionTitle}>使用外部播放器播放直播</ThemedText>
+            <ThemedText style={styles.subtitle}>
+              将直播流交给系统/第三方播放器（如 MX Player、爱投屏）走原生硬解播放，适合 App 内播放 4K 卡死的老盒子
+            </ThemedText>
+          </View>
+          <Animated.View style={externalAnimationStyle}>
+            <Switch
+              value={externalLivePlayer}
+              onValueChange={() => { }} // 禁用 Switch 直接交互，由按键/遥控器事件触发
+              trackColor={{ false: "#767577", true: Colors.dark.primary }}
+              thumbColor={externalLivePlayer ? "#ffffff" : "#f4f3f4"}
               pointerEvents="none"
             />
           </Animated.View>

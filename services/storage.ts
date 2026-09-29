@@ -41,6 +41,8 @@ export interface AppSettings {
   m3uUrl: string;
   // 兼容模式：屏蔽 4K/8K 超高清直播源，避免老设备（Android 5 等）硬解能力不足导致死机
   blockUltraHD: boolean;
+  // 调用系统外部播放器播放直播：老盒子上 ExoPlayer 解码路径易出问题，外部播放器走系统硬解更稳定
+  externalLivePlayer: boolean;
 }
 
 export interface LoginCredentials {
@@ -325,6 +327,7 @@ export class SettingsManager {
       },
       m3uUrl: "",
       blockUltraHD: false,
+      externalLivePlayer: false,
     };
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.SETTINGS);
